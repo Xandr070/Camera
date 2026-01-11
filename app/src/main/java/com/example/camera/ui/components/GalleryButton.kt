@@ -7,10 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Icon
+import com.example.camera.ui.theme.icons.CameraIcons
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,12 +37,12 @@ fun GalleryButton(
                         Color.White.copy(alpha = 0.15f)
                     )
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = CircleShape
             )
             .border(
                 width = 1.dp,
                 color = Color.White.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(12.dp)
+                shape = CircleShape
             )
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
@@ -63,7 +63,7 @@ fun GalleryButton(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Phone,
+                    imageVector = CameraIcons.Home,
                     contentDescription = null,
                     tint = Color.White.copy(alpha = 0.8f)
                 )

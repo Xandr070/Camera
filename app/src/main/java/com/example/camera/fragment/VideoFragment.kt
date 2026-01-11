@@ -18,8 +18,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,7 +37,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.camera.ui.theme.CameraXAppTheme
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -87,6 +91,7 @@ fun VideoFragment(
         GlassButton(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .padding(bottom = 100.dp),
             isActive = isRecording,
             activeColor = Color.Red,
@@ -98,6 +103,7 @@ fun VideoFragment(
         CameraSwitch(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
                 .padding(bottom = 100.dp, end = 24.dp),
             onClick = {
                 activeLens = if (activeLens == CameraSelector.DEFAULT_BACK_CAMERA) {
@@ -119,7 +125,10 @@ fun VideoFragment(
         )
 
         AnimatedVisibility(
-            modifier = Modifier.align(Alignment.TopCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 180.dp),
             visible = isRecording,
             enter = fadeIn(tween(200)),
             exit = fadeOut(tween(200))
@@ -139,9 +148,40 @@ fun VideoFragment(
                         recordingState?.run {
                             recordingStats.recordedDurationNanos / 1_000_000 / 1000f
                         } ?: 0f
-                    )
+                    ),
+                    color = Color.White
                 )
             }
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Video Fragment")
+@Composable
+private fun VideoFragmentPreview() {
+    CameraXAppTheme {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+            )
+            
+            GlassButton(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 100.dp),
+                isActive = false,
+                activeColor = Color.Red,
+                onClick = {}
+            )
+
+            CameraSwitch(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 100.dp, end = 24.dp),
+                onClick = {}
+            )
         }
     }
 }

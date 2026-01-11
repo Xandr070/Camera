@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -29,6 +30,7 @@ fun BottomNavigationBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .navigationBarsPadding()
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
@@ -37,14 +39,14 @@ fun BottomNavigationBar(
                         Color.White.copy(alpha = 0.1f)
                     )
                 ),
-                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+                shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 32.dp, bottomEnd = 32.dp)
             )
             .border(
                 width = 1.dp,
                 color = Color.White.copy(alpha = 0.2f),
-                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+                shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 32.dp, bottomEnd = 32.dp)
             )
-            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+            .clip(RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 32.dp, bottomEnd = 32.dp))
             .padding(horizontal = 24.dp, vertical = 20.dp)
     ) {
         Row(
@@ -72,17 +74,10 @@ private fun NavigationButton(
     Box(
         modifier = Modifier
             .background(
-                brush = if (isSelected) {
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.3f),
-                            Color.White.copy(alpha = 0.2f)
-                        )
-                    )
+                color = if (isSelected) {
+                    Color.White.copy(alpha = 0.25f)
                 } else {
-                    Brush.linearGradient(
-                        colors = listOf(Color.Transparent)
-                    )
+                    Color.Transparent
                 },
                 shape = RoundedCornerShape(20.dp)
             )

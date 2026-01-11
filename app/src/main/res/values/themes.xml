@@ -2,4 +2,10 @@
 <resources>
 
     <style name="Theme.CameraXApp" parent="android:Theme.Material.Light.NoActionBar" />
+    
+    <style name="Theme.Camera" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+    </style>
 </resources>

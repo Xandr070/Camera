@@ -43,6 +43,9 @@ class PhotoViewModel : ViewModel() {
 
     private val _cameraPreview = MutableStateFlow<SurfaceRequest?>(null)
     val surfaceRequest: StateFlow<SurfaceRequest?> = _cameraPreview.asStateFlow()
+    
+    private val _flashMode = MutableStateFlow(ImageCapture.FLASH_MODE_OFF)
+    val flashMode: StateFlow<Int> = _flashMode.asStateFlow()
 
     suspend fun bindToCamera(
         appContext: Context,
@@ -59,6 +62,7 @@ class PhotoViewModel : ViewModel() {
         )
 
         control = camera.cameraControl
+        capture.flashMode = _flashMode.value
 
         try {
             awaitCancellation()
@@ -115,5 +119,20 @@ class PhotoViewModel : ViewModel() {
 
     fun changeZoom(level: Float) {
         control?.setLinearZoom(level)
+    }
+    
+    fun toggleFlash() {
+        val newMode = when (_flashMode.value) {
+            ImageCapture.FLASH_MODE_OFF -> ImageCapture.FLASH_MODE_ON
+            ImageCapture.FLASH_MODE_ON -> ImageCapture.FLASH_MODE_OFF
+            else -> ImageCapture.FLASH_MODE_OFF
+        }
+        _flashMode.value = newMode
+        capture.flashMode = newMode
+    }
+    
+    fun setFlashMode(mode: Int) {
+        _flashMode.value = mode
+        capture.flashMode = mode
     }
 }

@@ -17,25 +17,37 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun CameraSwitch(
+fun DeleteButton(
     modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    isOnWhiteBackground: Boolean = false
 ) {
     Box(
         modifier = modifier
-            .size(56.dp)
+            .size(48.dp)
             .background(
                 brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = 0.25f),
-                        Color.White.copy(alpha = 0.15f)
-                    )
+                    colors = if (isOnWhiteBackground) {
+                        listOf(
+                            Color.Black.copy(alpha = 0.1f),
+                            Color.Black.copy(alpha = 0.05f)
+                        )
+                    } else {
+                        listOf(
+                            Color.White.copy(alpha = 0.25f),
+                            Color.White.copy(alpha = 0.15f)
+                        )
+                    }
                 ),
                 shape = CircleShape
             )
             .border(
                 width = 1.dp,
-                color = Color.White.copy(alpha = 0.3f),
+                color = if (isOnWhiteBackground) {
+                    Color.Black.copy(alpha = 0.2f)
+                } else {
+                    Color.White.copy(alpha = 0.3f)
+                },
                 shape = CircleShape
             )
             .clip(CircleShape)
@@ -43,10 +55,12 @@ fun CameraSwitch(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = CameraIcons.ArrowForward,
+            imageVector = CameraIcons.Delete,
             contentDescription = null,
-            tint = Color.White
+            tint = if (isOnWhiteBackground) Color.Black else Color.White
         )
     }
 }
+
+
 
