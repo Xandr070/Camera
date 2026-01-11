@@ -3,7 +3,9 @@ package com.example.camera.fragment
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -51,147 +53,205 @@ fun GalleryFragment(
 ) {
     val context = LocalContext.current
     val gridState = rememberLazyGridState()
-    val resources = remember { mutableStateListOf<Resource>() }
+    val mediaItems = remember { mutableStateListOf<Resource>() }
 
-    var targetResource by remember { mutableStateOf<Resource?>(null) }
+    var selectedItem by remember { mutableStateOf<Resource?>(null) }
 
     LaunchedEffect(Unit) {
-        if (resources.isEmpty()) {
-            resources.addAll(viewModel.getResources(context))
+        if (mediaItems.isEmpty()) {
+            mediaItems.addAll(viewModel.getResources(context))
         }
     }
 
-    BackHandler(enabled = targetResource != null) {
-        targetResource = null
+    BackHandler(enabled = selectedItem != null) {
+        selectedItem = null
     }
 
-    SharedTransitionLayout {
-        AnimatedContent(
-            targetState = targetResource,
-        ) { resource ->
-            when (resource) {
-                is Resource.Image -> Box(modifier = modifier) {
-                    AsyncImage(
-                        modifier = Modifier
-                            .padding(bottom = paddings.calculateBottomPadding())
-                            .sharedElement(
-                                animatedVisibilityScope = this@AnimatedContent,
-                                sharedContentState = rememberSharedContentState(key = resource.uri),
-                            )
-                            .fillMaxSize(),
-                        model = resource.uri,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                    )
-                    IconButton(
-                        modifier = Modifier.align(Alignment.TopEnd),
-                        onClick = {
-                            targetResource = null
-                            viewModel.deleteResource(context, resource.uri)
-                            resources.remove(resource)
-                        }
-                    ) {
-                        Icon(
-                            contentDescription = null,
-                            imageVector = Icons.Rounded.Delete,
-                            tint = MaterialTheme.colorScheme.error,
-                        )
-                    }
+    AnimatedContent(
+        targetState = selectedItem,
+        transitionSpec = { fadeIn() togetherWith fadeOut() }
+    ) { item ->
+        when (item) {
+            is Resource.Image -> ImageViewer(
+                modifier = modifier,
+                image = item,
+                paddings = paddings,
+                onClose = { selectedItem = null },
+                onDelete = {
+                    viewModel.deleteResource(context, item.uri)
+                    mediaItems.remove(item)
+                    selectedItem = null
                 }
+            )
 
-                is Resource.Video -> Box(modifier = modifier) {
-                    VideoPlayer(
-                        modifier = Modifier
-                            .padding(bottom = paddings.calculateBottomPadding())
-                            .sharedElement(
-                                animatedVisibilityScope = this@AnimatedContent,
-                                sharedContentState = rememberSharedContentState(key = resource.uri),
-                            )
-                            .fillMaxSize(),
-                        controller = true,
-                        uri = resource.uri,
-                    )
-                    IconButton(
-                        modifier = Modifier.align(Alignment.TopEnd),
-                        onClick = {
-                            targetResource = null
-                            viewModel.deleteResource(context, resource.uri)
-                            resources.remove(resource)
-                        }
-                    ) {
-                        Icon(
-                            contentDescription = null,
-                            imageVector = Icons.Rounded.Delete,
-                            tint = MaterialTheme.colorScheme.error,
-                        )
-                    }
+            is Resource.Video -> VideoViewer(
+                modifier = modifier,
+                video = item,
+                paddings = paddings,
+                onClose = { selectedItem = null },
+                onDelete = {
+                    viewModel.deleteResource(context, item.uri)
+                    mediaItems.remove(item)
+                    selectedItem = null
                 }
+            )
 
-                null -> LazyVerticalGrid(
-                    modifier = modifier,
-                    state = gridState,
-                    columns = GridCells.Adaptive(128.dp),
-                ) {
-                    items(
-                        resources.size,
-                        key = { i -> resources[i].uri },
-                    ) { i ->
-                        when (val item = resources[i]) {
-                            is Resource.Image -> Box {
-                                AsyncImage(
-                                    modifier = Modifier
-                                        .sharedElement(
-                                            animatedVisibilityScope = this@AnimatedContent,
-                                            sharedContentState = rememberSharedContentState(key = item.uri),
-                                        )
-                                        .aspectRatio(0.75f)
-                                        .clickable(onClick = { targetResource = item }),
-                                    model = item.uri,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                )
-                                Text(
-                                    modifier = Modifier.align(Alignment.BottomCenter),
-                                    text = item.date,
-                                )
-                            }
+            null -> MediaGrid(
+                modifier = modifier,
+                state = gridState,
+                items = mediaItems,
+                onItemClick = { selectedItem = it }
+            )
+        }
+    }
+}
 
-                            is Resource.Video -> Box {
-                                VideoPlayer(
-                                    modifier = Modifier
-                                        .sharedElement(
-                                            animatedVisibilityScope = this@AnimatedContent,
-                                            sharedContentState = rememberSharedContentState(key = item.uri),
-                                        )
-                                        .aspectRatio(0.75f)
-                                        .clickable(onClick = { targetResource = item }),
-                                    uri = item.uri,
-                                    initialVolume = 0f,
-                                )
-                                Text(
-                                    modifier = Modifier.align(Alignment.BottomCenter),
-                                    text = item.date,
-                                )
-                            }
-                        }
-                    }
-                }
+@Composable
+private fun ImageViewer(
+    modifier: Modifier,
+    image: Resource.Image,
+    paddings: PaddingValues,
+    onClose: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Box(modifier = modifier) {
+        AsyncImage(
+            modifier = Modifier
+                .padding(bottom = paddings.calculateBottomPadding())
+                .fillMaxSize(),
+            model = image.uri,
+            contentDescription = null,
+            contentScale = ContentScale.Crop
+        )
+        IconButton(
+            modifier = Modifier.align(Alignment.TopEnd),
+            onClick = onDelete
+        ) {
+            Icon(
+                contentDescription = null,
+                imageVector = Icons.Rounded.Delete,
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Composable
+private fun VideoViewer(
+    modifier: Modifier,
+    video: Resource.Video,
+    paddings: PaddingValues,
+    onClose: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Box(modifier = modifier) {
+        VideoPlayer(
+            modifier = Modifier
+                .padding(bottom = paddings.calculateBottomPadding())
+                .fillMaxSize(),
+            controller = true,
+            uri = video.uri
+        )
+        IconButton(
+            modifier = Modifier.align(Alignment.TopEnd),
+            onClick = onDelete
+        ) {
+            Icon(
+                contentDescription = null,
+                imageVector = Icons.Rounded.Delete,
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Composable
+private fun MediaGrid(
+    modifier: Modifier,
+    state: androidx.compose.foundation.lazy.grid.LazyGridState,
+    items: List<Resource>,
+    onItemClick: (Resource) -> Unit
+) {
+    LazyVerticalGrid(
+        modifier = modifier,
+        state = state,
+        columns = GridCells.Adaptive(128.dp)
+    ) {
+        items(
+            items.size,
+            key = { i -> items[i].uri }
+        ) { index ->
+            when (val item = items[index]) {
+                is Resource.Image -> MediaThumbnail(
+                    imageUri = item.uri.toString(),
+                    dateText = item.date,
+                    onClick = { onItemClick(item) }
+                )
+
+                is Resource.Video -> VideoThumbnail(
+                    videoUri = item.uri,
+                    dateText = item.date,
+                    onClick = { onItemClick(item) }
+                )
             }
         }
     }
 }
 
 @Composable
-fun VideoPlayer(
+private fun MediaThumbnail(
+    imageUri: String,
+    dateText: String,
+    onClick: () -> Unit
+) {
+    Box {
+        AsyncImage(
+            modifier = Modifier
+                .aspectRatio(0.75f)
+                .clickable(onClick = onClick),
+            model = imageUri,
+            contentDescription = null,
+            contentScale = ContentScale.Crop
+        )
+        Text(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            text = dateText
+        )
+    }
+}
+
+@Composable
+private fun VideoThumbnail(
+    videoUri: Uri,
+    dateText: String,
+    onClick: () -> Unit
+) {
+    Box {
+        VideoPlayer(
+            modifier = Modifier
+                .aspectRatio(0.75f)
+                .clickable(onClick = onClick),
+            uri = videoUri,
+            initialVolume = 0f
+        )
+        Text(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            text = dateText
+        )
+    }
+}
+
+@Composable
+private fun VideoPlayer(
     uri: Uri,
     modifier: Modifier = Modifier,
     initialVolume: Float = 1f,
-    controller: Boolean = false,
+    controller: Boolean = false
 ) {
     val context = LocalContext.current
 
     if (controller) {
-        val exoPlayer = remember(uri) {
+        val player = remember(uri) {
             ExoPlayer.Builder(context).build().apply {
                 setMediaItem(MediaItem.fromUri(uri))
                 volume = initialVolume
@@ -202,19 +262,17 @@ fun VideoPlayer(
         }
 
         DisposableEffect(uri) {
-            onDispose { exoPlayer.release() }
+            onDispose { player.release() }
         }
 
         AndroidView(
             modifier = modifier,
             factory = { ctx ->
                 PlayerView(ctx).apply {
-                    player = exoPlayer
+                    this.player = player
                 }
             },
-            update = { playerView ->
-                playerView.player = exoPlayer
-            }
+            update = { view -> view.player = player }
         )
     } else {
         Box {
@@ -229,7 +287,7 @@ fun VideoPlayer(
                     .size(72.dp)
                     .align(Alignment.Center),
                 contentDescription = null,
-                imageVector = Icons.Rounded.PlayArrow,
+                imageVector = Icons.Rounded.PlayArrow
             )
         }
     }

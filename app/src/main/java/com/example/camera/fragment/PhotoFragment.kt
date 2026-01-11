@@ -4,12 +4,11 @@ import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.CameraSelector
 import androidx.camera.viewfinder.compose.MutableCoordinateTransformer
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
@@ -18,9 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,20 +28,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
-import androidx.compose.ui.geometry.takeOrElse
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.round
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.camera.ui.components.CameraSwitch
+import com.example.camera.ui.components.GlassButton
+import com.example.camera.utils.toRoundedOffset
+import com.example.camera.viewmodel.PhotoViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.example.camera.viewmodel.PhotoViewModel
-import androidx.compose.material.icons.filled.ArrowForward
 import java.util.UUID
 
 @Composable
@@ -53,84 +49,82 @@ fun PhotoFragment(
     viewModel: PhotoViewModel,
     modifier: Modifier = Modifier,
     paddings: PaddingValues = PaddingValues.Zero,
-    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
+    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val tapCircleSize = 48.dp
+    val scope = rememberCoroutineScope()
+    
+    val cameraPreview by viewModel.surfaceRequest.collectAsStateWithLifecycle()
 
-    val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
+    var zoomLevel by remember { mutableStateOf(0f) }
+    var isFlashing by remember { mutableStateOf(false) }
+    var activeLens by remember { mutableStateOf(CameraSelector.DEFAULT_BACK_CAMERA) }
+    var focusPoint by remember { mutableStateOf(UUID.randomUUID() to Offset.Unspecified) }
+    val focusPosition = remember(focusPoint.first) { focusPoint.second }
 
-    var zoom by remember { mutableStateOf(0f) }
-    var flash by remember { mutableStateOf(false) }
-    var cameraSelector by remember { mutableStateOf(CameraSelector.DEFAULT_BACK_CAMERA) }
-    var focusRequest by remember { mutableStateOf(UUID.randomUUID() to Offset.Unspecified) }
-    val focusCoordinates = remember(focusRequest.first) { focusRequest.second }
-
-    if (focusRequest.second.isSpecified) {
-        LaunchedEffect(focusRequest.first) {
-            delay(1000)
-            focusRequest = focusRequest.first to Offset.Unspecified
-        }
-    }
-
-    LaunchedEffect(lifecycleOwner, cameraSelector) {
+    LaunchedEffect(lifecycleOwner, activeLens) {
         viewModel.bindToCamera(
             appContext = context.applicationContext,
             lifecycleOwner = lifecycleOwner,
-            cameraSelector = cameraSelector,
+            cameraSelector = activeLens
         )
     }
 
+    if (focusPoint.second.isSpecified) {
+        LaunchedEffect(focusPoint.first) {
+            delay(1000)
+            focusPoint = focusPoint.first to Offset.Unspecified
+        }
+    }
+
     Box(modifier = modifier) {
-        surfaceRequest?.let { request ->
-            val coordinateTransformer = remember { MutableCoordinateTransformer() }
+        cameraPreview?.let { preview ->
+            val transformer = remember { MutableCoordinateTransformer() }
 
             CameraXViewfinder(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(Unit) {
-                        detectTapGestures { tapCoordinates ->
-                            with(coordinateTransformer) {
-                                viewModel.tapToFocus(tapCoordinates.transform())
+                        detectTapGestures { tapPosition ->
+                            with(transformer) {
+                                viewModel.tapToFocus(tapPosition.transform())
                             }
-                            focusRequest = UUID.randomUUID() to tapCoordinates
+                            focusPoint = UUID.randomUUID() to tapPosition
                         }
                     }
                     .pointerInput(Unit) {
                         detectTransformGestures { _, _, gestureZoom, _ ->
-                            val newScale = zoom - (1f - gestureZoom)
-
-                            zoom = newScale.coerceIn(0f, 1f)
-                            viewModel.changeZoom(zoom)
+                            val newZoom = zoomLevel - (1f - gestureZoom)
+                            zoomLevel = newZoom.coerceIn(0f, 1f)
+                            viewModel.changeZoom(zoomLevel)
                         }
                     },
-                surfaceRequest = request,
+                surfaceRequest = preview
             )
 
             AnimatedVisibility(
                 modifier = Modifier
-                    .offset { focusCoordinates.takeOrElse { Offset.Zero }.round() }
-                    .offset(-tapCircleSize / 2, -tapCircleSize / 2),
-                visible = focusRequest.second.isSpecified,
-                enter = fadeIn(),
-                exit = fadeOut(),
+                    .offset { focusPosition.toRoundedOffset() }
+                    .offset(-24.dp, -24.dp),
+                visible = focusPoint.second.isSpecified,
+                enter = fadeIn(tween(200)),
+                exit = fadeOut(tween(200))
             ) {
-                Canvas(modifier = Modifier.size(tapCircleSize)) {
-                    val borderSize = 2.dp.toPx()
+                Canvas(modifier = Modifier.size(48.dp)) {
+                    val border = 2.dp.toPx()
                     drawCircle(
-                        radius = (size.minDimension - borderSize) / 2,
+                        radius = (size.minDimension - border) / 2,
                         color = Color.White,
-                        style = Stroke(width = borderSize)
+                        style = Stroke(width = border)
                     )
                 }
             }
         }
 
         AnimatedVisibility(
-            visible = flash,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            visible = isFlashing,
+            enter = fadeIn(tween(50)),
+            exit = fadeOut(tween(150))
         ) {
             Box(
                 modifier = Modifier
@@ -139,62 +133,32 @@ fun PhotoFragment(
             )
         }
 
-        val animationBorder = remember { Animatable(0f) }
-        Canvas(
+        GlassButton(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(paddings)
-                .size(56.dp)
-                .clickable(
-                    onClick = {
-                        viewModel.takePhoto(context)
-                        coroutineScope.launch {
-                            if (animationBorder.isRunning) animationBorder.snapTo(0f)
+                .padding(bottom = 100.dp),
+            isActive = false,
+            onClick = {
+                viewModel.takePhoto(context)
+                scope.launch {
+                    isFlashing = true
+                    delay(50)
+                    isFlashing = false
+                }
+            }
+        )
 
-                            flash = true
-                            animationBorder.animateTo(1f)
-                            delay(50)
-                            flash = false
-                            delay(150)
-                            animationBorder.animateTo(0f)
-                        }
-                    },
-                    indication = null,
-                    interactionSource = null,
-                )
-        ) {
-            val borderSize = 2.dp.toPx()
-            val minOffset = 4.dp.toPx()
-            val maxOffset = ((size.minDimension / 2) - borderSize) / 3 * 2
-
-            drawCircle(
-                radius = size.minDimension / 2 - borderSize,
-                color = Color.White,
-                style = Stroke(width = borderSize)
-            )
-            drawCircle(
-                radius = size.minDimension / 2 - borderSize - (minOffset + (maxOffset - minOffset) * animationBorder.value),
-                color = Color.White
-            )
-        }
-
-        IconButton(
+        CameraSwitch(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(paddings)
-                .size(56.dp),
+                .padding(bottom = 100.dp, end = 24.dp),
             onClick = {
-                cameraSelector = if (cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
+                activeLens = if (activeLens == CameraSelector.DEFAULT_BACK_CAMERA) {
                     CameraSelector.DEFAULT_FRONT_CAMERA
                 } else {
                     CameraSelector.DEFAULT_BACK_CAMERA
                 }
             }
-        ) {
-            Icon(
-                contentDescription = null,
-                imageVector = Icons.Filled.ArrowForward,
-            )
-        }
+        )
     }
 }

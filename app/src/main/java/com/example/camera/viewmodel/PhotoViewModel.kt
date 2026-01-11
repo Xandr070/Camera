@@ -3,7 +3,6 @@ package com.example.camera.viewmodel
 import android.content.ContentValues
 import android.content.Context
 import android.provider.MediaStore
-import android.util.Log
 import android.widget.Toast
 import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraSelector
@@ -27,91 +26,94 @@ import kotlinx.coroutines.flow.update
 
 class PhotoViewModel : ViewModel() {
 
-    private var surfaceMeteringPointFactory: SurfaceOrientedMeteringPointFactory? = null
-    private var cameraControl: CameraControl? = null
+    private var focusFactory: SurfaceOrientedMeteringPointFactory? = null
+    private var control: CameraControl? = null
 
-    private val previewUseCase = Preview.Builder().build().apply {
-        setSurfaceProvider { newSurfaceRequest ->
-            _surfaceRequest.update { newSurfaceRequest }
-            surfaceMeteringPointFactory = SurfaceOrientedMeteringPointFactory(
-                newSurfaceRequest.resolution.width.toFloat(),
-                newSurfaceRequest.resolution.height.toFloat(),
+    private val preview = Preview.Builder().build().apply {
+        setSurfaceProvider { request ->
+            _cameraPreview.update { request }
+            focusFactory = SurfaceOrientedMeteringPointFactory(
+                request.resolution.width.toFloat(),
+                request.resolution.height.toFloat()
             )
         }
     }
-    private val imageCapture = ImageCapture.Builder().build()
 
-    private val _surfaceRequest = MutableStateFlow<SurfaceRequest?>(null)
-    val surfaceRequest: StateFlow<SurfaceRequest?> = _surfaceRequest.asStateFlow()
+    private val capture = ImageCapture.Builder().build()
+
+    private val _cameraPreview = MutableStateFlow<SurfaceRequest?>(null)
+    val surfaceRequest: StateFlow<SurfaceRequest?> = _cameraPreview.asStateFlow()
 
     suspend fun bindToCamera(
         appContext: Context,
         lifecycleOwner: LifecycleOwner,
-        cameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA,
+        cameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
     ) {
-        val cameraProvider = ProcessCameraProvider.awaitInstance(appContext)
-        cameraProvider.unbindAll()
-        val camera = cameraProvider.bindToLifecycle(
-            lifecycleOwner, cameraSelector, previewUseCase, imageCapture
+        val provider = ProcessCameraProvider.awaitInstance(appContext)
+        provider.unbindAll()
+        val camera = provider.bindToLifecycle(
+            lifecycleOwner,
+            cameraSelector,
+            preview,
+            capture
         )
 
-        cameraControl = camera.cameraControl
+        control = camera.cameraControl
 
         try {
             awaitCancellation()
         } finally {
-            cameraControl = null
+            control = null
         }
     }
 
     fun takePhoto(context: Context) {
-        val fileName = "JPEG_${System.currentTimeMillis()}.jpg"
-        val contentValues = ContentValues().apply {
+        val fileName = "IMG_${System.currentTimeMillis()}.jpg"
+        val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
             put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
             put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/CameraX-App")
         }
 
-        val outputOptions = ImageCapture.OutputFileOptions
+        val options = ImageCapture.OutputFileOptions
             .Builder(
                 context.contentResolver,
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                contentValues
+                values
             )
             .build()
 
-        imageCapture.takePicture(
-            outputOptions,
+        capture.takePicture(
+            options,
             ContextCompat.getMainExecutor(context),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                    val msg = "Photo capture succeeded: ${output.savedUri}"
-
-                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                    Log.d(TAG, msg)
+                    Toast.makeText(
+                        context,
+                        "Фото сохранено: ${output.savedUri}",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
 
                 override fun onError(exc: ImageCaptureException) {
-                    Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
+                    Toast.makeText(
+                        context,
+                        "Ошибка: ${exc.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         )
     }
 
-    fun tapToFocus(tapCoordinates: Offset) {
-        val point = surfaceMeteringPointFactory?.createPoint(tapCoordinates.x, tapCoordinates.y)
-
-        point?.let { point ->
-            val meteringAction = FocusMeteringAction.Builder(point).build()
-            cameraControl?.startFocusAndMetering(meteringAction)
+    fun tapToFocus(position: Offset) {
+        focusFactory?.createPoint(position.x, position.y)?.let { point ->
+            val action = FocusMeteringAction.Builder(point).build()
+            control?.startFocusAndMetering(action)
         }
     }
 
-    fun changeZoom(linear: Float) {
-        cameraControl?.setLinearZoom(linear)
-    }
-
-    companion object {
-        private const val TAG = "CameraPreviewViewModel"
+    fun changeZoom(level: Float) {
+        control?.setLinearZoom(level)
     }
 }

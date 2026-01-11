@@ -1,37 +1,25 @@
 package com.example.camera
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,13 +28,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.example.camera.fragment.GalleryFragment
 import com.example.camera.fragment.PhotoFragment
 import com.example.camera.fragment.VideoFragment
+import com.example.camera.ui.components.BottomNavigationBar
+import com.example.camera.ui.components.GalleryButton
+import com.example.camera.ui.components.NavigationItem
 import com.example.camera.ui.theme.CameraXAppTheme
+import com.example.camera.utils.Permissions
+import com.example.camera.utils.allGranted
+import com.example.camera.utils.deniedList
+import com.example.camera.utils.hasAllPermissions
 import com.example.camera.viewmodel.GalleryViewModel
 import com.example.camera.viewmodel.PhotoViewModel
 import com.example.camera.viewmodel.VideoViewModel
@@ -54,153 +48,110 @@ import kotlinx.serialization.Serializable
 
 class MainActivity : ComponentActivity() {
 
-    private val activityResultLauncher = registerForActivityResult(
+    private var hasPermissions by mutableStateOf(false)
+
+    private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        Log.d(TAG, "Permission result: $permissions")
-        
-        val permissionGranted = permissions.entries.asSequence()
-            .filter { it.key in REQUIRED_PERMISSIONS }
-            .all { it.value }
-
-        if (!permissionGranted) {
-            val deniedPermissions = permissions.entries
-                .filter { it.key in REQUIRED_PERMISSIONS && !it.value }
-                .joinToString(", ") { it.key }
-
-            Log.w(TAG, "Permissions denied: $deniedPermissions")
-            
+    ) { results ->
+        if (results.allGranted()) {
+            hasPermissions = true
+        } else {
             Toast.makeText(
                 baseContext,
-                "Permission request denied: $deniedPermissions. Please grant permissions in Settings.",
+                "Требуются разрешения: ${results.deniedList()}",
                 Toast.LENGTH_LONG
             ).show()
-        } else {
-            Log.d(TAG, "All permissions granted")
-            isCameraGranted = true
         }
     }
 
-    private var isCameraGranted by mutableStateOf(false)
-
-    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Log.d(TAG, "onCreate: checking permissions")
-        if (allPermissionsGranted()) {
-            Log.d(TAG, "All permissions already granted")
-            isCameraGranted = true
-        } else {
-            Log.d(TAG, "Permissions not granted, will request on first UI render")
-        }
+        hasPermissions = baseContext.hasAllPermissions()
 
-        val galleryViewModel: GalleryViewModel by viewModels()
-        val photoViewModel: PhotoViewModel by viewModels()
+        val imageViewModel: PhotoViewModel by viewModels()
         val videoViewModel: VideoViewModel by viewModels()
+        val libraryViewModel: GalleryViewModel by viewModels()
 
-        val destinations = listOf(Screen.Image, Screen.Video, Screen.Gallery)
+        val tabs = listOf(Destination.Photo, Destination.Video, Destination.Library)
 
         enableEdgeToEdge()
         setContent {
-            val backStack = remember { mutableStateListOf<Screen>(Screen.Image) }
-
-            var selectedIndex by remember { mutableIntStateOf(0) }
+            val navigationStack = remember { mutableStateListOf<Destination>(Destination.Photo) }
 
             CameraXAppTheme {
                 LaunchedEffect(Unit) {
-                    if (!isCameraGranted && !allPermissionsGranted()) {
-                        Log.d(TAG, "Auto-requesting permissions on first render")
+                    if (!hasPermissions && !baseContext.hasAllPermissions()) {
                         requestPermissions()
                     }
                 }
-                
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    topBar = {
-                        PrimaryTabRow(
-                            selectedTabIndex = selectedIndex, modifier = Modifier
-                                .fillMaxWidth()
-                                .windowInsetsPadding(TopAppBarDefaults.windowInsets)
-                        ) {
-                            destinations.forEachIndexed { index, destination ->
-                                Tab(
-                                    selected = backStack.last() == destination,
-                                    onClick = {
-                                        backStack.clear()
-                                        backStack.add(destination)
-                                        selectedIndex = index
-                                    },
-                                    text = { Text(destination.name) }
-                                )
-                            }
-                        }
-                    },
-                ) { innerPadding ->
-                    if (!isCameraGranted) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(innerPadding),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(18.dp)
-                        ) {
-                            Text(
-                                text = "Need permissions for work with camera",
-                                textAlign = TextAlign.Center
-                            )
-                            Button(onClick = { requestPermissions() }) {
-                                Text("request")
-                            }
-                        }
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (!hasPermissions) {
+                        PermissionRequestScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            onRequestClick = { requestPermissions() }
+                        )
                     } else {
                         NavDisplay(
-                            modifier = Modifier
-                                .fillMaxSize(),
-                            backStack = backStack,
-                            onBack = { backStack.removeLastOrNull() },
-                            transitionSpec = {
-                                fadeIn() togetherWith fadeOut()
-                            },
+                            modifier = Modifier.fillMaxSize(),
+                            backStack = navigationStack,
+                            onBack = { navigationStack.removeLastOrNull() },
+                            transitionSpec = { fadeIn() togetherWith fadeOut() },
                             entryProvider = entryProvider {
-                                entry<Screen.Image> {
+                                entry<Destination.Photo> {
                                     PhotoFragment(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(top = innerPadding.calculateTopPadding()),
-                                        paddings = innerPadding,
-                                        viewModel = photoViewModel,
+                                        modifier = Modifier.fillMaxSize(),
+                                        paddings = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                                        viewModel = imageViewModel
                                     )
                                 }
-                                entry<Screen.Video> {
+                                entry<Destination.Video> {
                                     VideoFragment(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(top = innerPadding.calculateTopPadding()),
-                                        paddings = innerPadding,
-                                        viewModel = videoViewModel,
+                                        modifier = Modifier.fillMaxSize(),
+                                        paddings = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                                        viewModel = videoViewModel
                                     )
                                 }
-                                entry<Screen.Gallery>(
-                                    metadata = NavDisplay.transitionSpec {
-                                        slideInHorizontally(
-                                            initialOffsetX = { it },
-                                            animationSpec = tween(1000)
-                                        ) togetherWith
-                                                slideOutHorizontally(
-                                                    targetOffsetX = { -it },
-                                                    animationSpec = tween(1000)
-                                                )
-                                    }
-                                ) {
+                                entry<Destination.Library> {
                                     GalleryFragment(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(top = innerPadding.calculateTopPadding()),
-                                        paddings = innerPadding,
-                                        viewModel = galleryViewModel,
+                                        modifier = Modifier.fillMaxSize(),
+                                        paddings = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                                        viewModel = libraryViewModel
                                     )
                                 }
+                            }
+                        )
+
+                        val currentDestination = navigationStack.lastOrNull() ?: Destination.Photo
+                        val currentIndex = when (currentDestination) {
+                            is Destination.Photo -> 0
+                            is Destination.Video -> 1
+                            else -> 0
+                        }
+
+                        val navItems = listOf(
+                            NavigationItem("Фото"),
+                            NavigationItem("Видео")
+                        )
+
+                        BottomNavigationBar(
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                            selectedIndex = currentIndex,
+                            items = navItems,
+                            onItemSelected = { index ->
+                                navigationStack.clear()
+                                navigationStack.add(tabs[index])
+                            }
+                        )
+
+                        GalleryButton(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(bottom = 100.dp, end = 24.dp),
+                            onClick = {
+                                navigationStack.clear()
+                                navigationStack.add(Destination.Library)
                             }
                         )
                     }
@@ -210,39 +161,46 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestPermissions() {
-        Log.d(TAG, "Requesting permissions: ${REQUIRED_PERMISSIONS.joinToString()}")
-        activityResultLauncher.launch(REQUIRED_PERMISSIONS)
-    }
-
-    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
-        ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
+        permissionLauncher.launch(Permissions.required)
     }
 
     @Serializable
-    sealed interface Screen {
-        val name: String
+    sealed interface Destination {
+        val label: String
 
         @Serializable
-        data object Image : Screen {
-            override val name: String = "Photo"
+        data object Photo : Destination {
+            override val label: String = "Фото"
         }
 
         @Serializable
-        data object Video : Screen {
-            override val name: String = "Video"
+        data object Video : Destination {
+            override val label: String = "Видео"
         }
 
         @Serializable
-        data object Gallery : Screen {
-            override val name: String = "Gallery"
+        data object Library : Destination {
+            override val label: String = "Галерея"
         }
     }
+}
 
-    companion object {
-        private const val TAG = "CameraXApp"
-        private val REQUIRED_PERMISSIONS = arrayOf(
-            Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO,
+@Composable
+private fun PermissionRequestScreen(
+    modifier: Modifier = Modifier,
+    onRequestClick: () -> Unit
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        Text(
+            text = "Для работы камеры требуются разрешения",
+            textAlign = TextAlign.Center
         )
+        Button(onClick = onRequestClick) {
+            Text("Запросить разрешения")
+        }
     }
 }

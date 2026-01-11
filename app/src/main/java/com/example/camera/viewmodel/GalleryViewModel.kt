@@ -6,7 +6,6 @@ import android.content.Context
 import android.database.Cursor
 import android.net.Uri
 import android.provider.MediaStore
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import java.time.Instant
 import java.time.ZoneId
@@ -41,7 +40,6 @@ class GalleryViewModel : ViewModel() {
             selectionArgs = arrayOf("%Pictures/CameraX-App/%"),
             sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC",
         )
-        Log.v(TAG, "videoQuery: $videoQuery, imageQuery: $imageQuery")
 
         val videos = videoQuery?.use { cursor ->
             with(cursor) {
@@ -51,7 +49,6 @@ class GalleryViewModel : ViewModel() {
                 val nameColumn = getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
                 val durationColumn = getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
 
-                Log.v(TAG, "videos count: $count")
 
                 List(count) { index ->
                     moveToPosition(index)
@@ -82,7 +79,6 @@ class GalleryViewModel : ViewModel() {
                 val dateColumn = getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
                 val nameColumn = getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
 
-                Log.v(TAG, "images count: $count")
 
                 List(count) { index ->
                     moveToPosition(index)
@@ -106,7 +102,6 @@ class GalleryViewModel : ViewModel() {
             }
         } ?: emptyList()
 
-        Log.v(TAG, "videos: $videos, images: $images")
 
         return (videos + images).sortedByDescending { resource -> resource.date }
     }
@@ -129,10 +124,6 @@ class GalleryViewModel : ViewModel() {
         sortOrder,
     )
 
-    companion object {
-
-        const val TAG = "GalleryViewModel"
-    }
 }
 
 sealed interface Resource {

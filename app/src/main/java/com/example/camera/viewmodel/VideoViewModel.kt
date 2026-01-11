@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.ContentValues
 import android.content.Context
 import android.provider.MediaStore
-import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
 import androidx.camera.core.CameraControl
@@ -30,109 +29,107 @@ import kotlinx.coroutines.flow.update
 
 class VideoViewModel : ViewModel() {
 
-    private var surfaceMeteringPointFactory: SurfaceOrientedMeteringPointFactory? = null
-    private var cameraControl: CameraControl? = null
-    private var recording: Recording? = null
+    private var focusFactory: SurfaceOrientedMeteringPointFactory? = null
+    private var control: CameraControl? = null
+    private var activeRecording: Recording? = null
 
-    private val previewUseCase = Preview.Builder().build().apply {
-        setSurfaceProvider { newSurfaceRequest ->
-            _surfaceRequest.update { newSurfaceRequest }
-            surfaceMeteringPointFactory = SurfaceOrientedMeteringPointFactory(
-                newSurfaceRequest.resolution.width.toFloat(),
-                newSurfaceRequest.resolution.height.toFloat(),
+    private val preview = Preview.Builder().build().apply {
+        setSurfaceProvider { request ->
+            _cameraPreview.update { request }
+            focusFactory = SurfaceOrientedMeteringPointFactory(
+                request.resolution.width.toFloat(),
+                request.resolution.height.toFloat()
             )
         }
     }
 
     private val videoCapture = VideoCapture.withOutput(Recorder.Builder().build())
 
-    private val _surfaceRequest = MutableStateFlow<SurfaceRequest?>(null)
-    val surfaceRequest: StateFlow<SurfaceRequest?> = _surfaceRequest.asStateFlow()
+    private val _cameraPreview = MutableStateFlow<SurfaceRequest?>(null)
+    val surfaceRequest: StateFlow<SurfaceRequest?> = _cameraPreview.asStateFlow()
 
-    private val _videoRecordEvent = MutableStateFlow<VideoRecordEvent?>(null)
-    val videoRecord: StateFlow<VideoRecordEvent?> = _videoRecordEvent.asStateFlow()
+    private val _recordingState = MutableStateFlow<VideoRecordEvent?>(null)
+    val videoRecord: StateFlow<VideoRecordEvent?> = _recordingState.asStateFlow()
 
     suspend fun bindToCamera(
         appContext: Context,
         lifecycleOwner: LifecycleOwner,
-        cameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA,
+        cameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
     ) {
-        val isRecorded = recording?.isPersistent ?: false
-        if (isRecorded) recording?.pause()
+        val wasRecording = activeRecording?.isPersistent ?: false
+        if (wasRecording) activeRecording?.pause()
 
-        val cameraProvider = ProcessCameraProvider.awaitInstance(appContext)
-        cameraProvider.unbindAll()
-        val camera = cameraProvider.bindToLifecycle(
-            lifecycleOwner, cameraSelector, previewUseCase, videoCapture
+        val provider = ProcessCameraProvider.awaitInstance(appContext)
+        provider.unbindAll()
+        val camera = provider.bindToLifecycle(
+            lifecycleOwner,
+            cameraSelector,
+            preview,
+            videoCapture
         )
 
-        cameraControl = camera.cameraControl
+        control = camera.cameraControl
 
-        if (isRecorded) recording?.resume()
+        if (wasRecording) activeRecording?.resume()
 
         try {
             awaitCancellation()
         } finally {
-            cameraControl = null
+            control = null
         }
     }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun captureVideo(context: Context) {
-        recording?.run {
+        activeRecording?.run {
             stop()
-
-            recording = null
+            activeRecording = null
             return
         }
 
-        val fileName = "Video_${System.currentTimeMillis()}"
-        val contentValues = ContentValues().apply {
+        val fileName = "VID_${System.currentTimeMillis()}"
+        val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
             put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
             put(MediaStore.Images.Media.RELATIVE_PATH, "Movies/CameraX-App")
         }
 
-        val outputOptions = MediaStoreOutputOptions
+        val options = MediaStoreOutputOptions
             .Builder(
                 context.contentResolver,
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
             )
-            .setContentValues(contentValues)
+            .setContentValues(values)
             .build()
 
-        recording = videoCapture.output
-            .prepareRecording(context, outputOptions)
+        activeRecording = videoCapture.output
+            .prepareRecording(context, options)
             .asPersistentRecording()
             .withAudioEnabled()
-            .start(ContextCompat.getMainExecutor(context)) { recordEvent ->
-                _videoRecordEvent.value = recordEvent
+            .start(ContextCompat.getMainExecutor(context)) { event ->
+                _recordingState.value = event
 
-                if (recordEvent is VideoRecordEvent.Finalize) {
-                    if (!recordEvent.hasError()) {
-                        val msg = "Video capture succeeded: ${recordEvent.outputResults.outputUri}"
-
-                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                        Log.d(TAG, msg)
-                    } else {
-                        recording?.close()
-                        recording = null
-
+                if (event is VideoRecordEvent.Finalize) {
+                    if (!event.hasError()) {
                         Toast.makeText(
-                            context, "Video capture ends with error: ${recordEvent.error}",
+                            context,
+                            "Видео сохранено: ${event.outputResults.outputUri}",
                             Toast.LENGTH_SHORT
-                        )
-                            .show()
+                        ).show()
+                    } else {
+                        activeRecording?.close()
+                        activeRecording = null
+                        Toast.makeText(
+                            context,
+                            "Ошибка: ${event.error}",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             }
     }
 
-    fun changeZoom(linear: Float) {
-        cameraControl?.setLinearZoom(linear)
-    }
-
-    companion object {
-        private const val TAG = "VideoCaptureViewModel"
+    fun changeZoom(level: Float) {
+        control?.setLinearZoom(level)
     }
 }
