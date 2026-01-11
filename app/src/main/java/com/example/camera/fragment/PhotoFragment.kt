@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
+import com.example.camera.R
 import com.example.camera.ui.theme.CameraTheme
 import com.example.camera.viewmodel.PhotoViewModel
 
@@ -71,7 +73,9 @@ fun PhotoScreen(viewModel: PhotoViewModel) {
                 .padding(start = 16.dp, bottom = 100.dp)
                 .size(60.dp)
                 .background(Color.Gray.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                .clickable {  }
+                .clickable { 
+                    findNavController().navigate(R.id.action_photo_to_gallery)
+                }
         ) {
         }
         
