@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -48,12 +49,13 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.camera.ui.components.CameraSwitch
 import com.example.camera.ui.components.GlassButton
-import com.example.camera.utils.toRoundedOffset
 import com.example.camera.viewmodel.PhotoViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 import androidx.camera.core.ImageCapture
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.unit.round
 
 @Composable
 fun PhotoFragment(
@@ -67,7 +69,7 @@ fun PhotoFragment(
     val cameraPreview by viewModel.surfaceRequest.collectAsStateWithLifecycle()
     val flashMode: Int by viewModel.flashMode.collectAsStateWithLifecycle()
 
-    var zoomLevel by remember { mutableStateOf(0f) }
+    var zoomLevel by remember { mutableFloatStateOf(0f) }
     var isFlashing by remember { mutableStateOf(false) }
     var activeLens by remember { mutableStateOf(CameraSelector.DEFAULT_BACK_CAMERA) }
     var focusPoint by remember { mutableStateOf(UUID.randomUUID() to Offset.Unspecified) }
@@ -115,7 +117,9 @@ fun PhotoFragment(
 
             AnimatedVisibility(
                 modifier = Modifier
-                    .offset { focusPosition.toRoundedOffset() }
+                    .offset {
+                        if (focusPosition.isSpecified) focusPosition.round() else IntOffset.Zero
+                    }
                     .offset((-24).dp, (-24).dp),
                 visible = focusPoint.second.isSpecified,
                 enter = fadeIn(tween(200)),

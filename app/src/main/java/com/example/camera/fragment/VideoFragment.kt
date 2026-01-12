@@ -94,7 +94,6 @@ fun VideoFragment(
         GlassButton(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
                 .padding(bottom = 100.dp),
             isActive = isRecording,
             activeColor = Color.Red,
