@@ -7,14 +7,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
-import com.example.camera.ui.theme.icons.CameraIcons
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.example.camera.R
 
 @Composable
 fun CameraSwitch(
@@ -43,8 +44,8 @@ fun CameraSwitch(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = CameraIcons.ArrowForward,
-            contentDescription = null,
+            painter = painterResource(id = R.drawable.flip_camera_ios_24px),
+            contentDescription = "Переключить камеру",
             tint = Color.White
         )
     }

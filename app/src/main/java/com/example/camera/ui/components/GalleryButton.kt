@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import com.example.camera.ui.theme.icons.CameraIcons
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,8 +17,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.example.camera.R
 
 @Composable
 fun GalleryButton(
@@ -63,8 +64,8 @@ fun GalleryButton(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = CameraIcons.Home,
-                    contentDescription = null,
+                    painter = painterResource(id = R.drawable.imagesmode_24px),
+                    contentDescription = "Галерея",
                     tint = Color.White.copy(alpha = 0.8f)
                 )
             }

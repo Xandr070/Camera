@@ -249,7 +249,6 @@ object CameraIcons {
                 viewportWidth = 24.0f,
                 viewportHeight = 24.0f
             ).apply {
-                // Простая иконка вспышки с перечеркиванием
                 path(
                     fill = SolidColor(Color.Black),
                     stroke = null,
