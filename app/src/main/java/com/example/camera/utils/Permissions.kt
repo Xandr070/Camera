@@ -28,3 +28,7 @@ fun Map<String, Boolean>.deniedList(): String {
         .joinToString(", ") { it.key }
 }
 
+fun Context.hasPermission(permission: String): Boolean {
+    return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+}
+

@@ -14,7 +14,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -60,7 +59,6 @@ import androidx.camera.core.ImageCapture
 fun PhotoFragment(
     viewModel: PhotoViewModel,
     modifier: Modifier = Modifier,
-    paddings: PaddingValues = PaddingValues.Zero,
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
 ) {
     val context = LocalContext.current
@@ -118,7 +116,7 @@ fun PhotoFragment(
             AnimatedVisibility(
                 modifier = Modifier
                     .offset { focusPosition.toRoundedOffset() }
-                    .offset(-24.dp, -24.dp),
+                    .offset((-24).dp, (-24).dp),
                 visible = focusPoint.second.isSpecified,
                 enter = fadeIn(tween(200)),
                 exit = fadeOut(tween(200))

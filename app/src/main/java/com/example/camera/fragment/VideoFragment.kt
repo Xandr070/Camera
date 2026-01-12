@@ -46,12 +46,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.camera.ui.components.CameraSwitch
 import com.example.camera.ui.components.GlassButton
 import com.example.camera.viewmodel.VideoViewModel
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 
 @Composable
 fun VideoFragment(
     viewModel: VideoViewModel,
     modifier: Modifier = Modifier,
-    paddings: PaddingValues = PaddingValues.Zero,
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
 ) {
     val context = LocalContext.current
@@ -96,7 +99,14 @@ fun VideoFragment(
             isActive = isRecording,
             activeColor = Color.Red,
             onClick = {
-                viewModel.captureVideo(context)
+                if (ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    @SuppressLint("MissingPermission")
+                    viewModel.captureVideo(context)
+                }
             }
         )
 

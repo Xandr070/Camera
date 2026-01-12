@@ -3,7 +3,6 @@ package com.example.camera
 import android.os.Build
 import android.os.Bundle
 import android.view.View
-import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,9 +11,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,21 +22,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.ui.NavDisplay
-import com.example.camera.fragment.GalleryFragment
-import com.example.camera.fragment.PhotoFragment
-import com.example.camera.fragment.VideoFragment
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.example.camera.navigation.NavGraph
+import com.example.camera.navigation.Screen
 import com.example.camera.ui.components.BottomNavigationBar
 import com.example.camera.ui.components.GalleryButton
 import com.example.camera.ui.components.NavigationItem
@@ -52,7 +45,6 @@ import com.example.camera.utils.hasAllPermissions
 import com.example.camera.viewmodel.GalleryViewModel
 import com.example.camera.viewmodel.PhotoViewModel
 import com.example.camera.viewmodel.VideoViewModel
-import kotlinx.serialization.Serializable
 
 class MainActivity : ComponentActivity() {
 
@@ -81,8 +73,6 @@ class MainActivity : ComponentActivity() {
         val videoViewModel: VideoViewModel by viewModels()
         val libraryViewModel: GalleryViewModel by viewModels()
 
-        val tabs = listOf(Destination.Photo, Destination.Video, Destination.Library)
-
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -98,11 +88,11 @@ class MainActivity : ComponentActivity() {
         
         enableEdgeToEdge()
         setContent {
-            val navigationStack = remember { mutableStateListOf<Destination>(Destination.Photo) }
-
             CameraXAppTheme {
+                val navController = rememberNavController()
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
                 val view = LocalView.current
-                val navigationStackState = rememberUpdatedState(navigationStack)
                 
                 LaunchedEffect(Unit) {
                     if (!hasPermissions && !baseContext.hasAllPermissions()) {
@@ -110,9 +100,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 
-                LaunchedEffect(navigationStack.lastOrNull()) {
-                    val currentDestination = navigationStackState.value.lastOrNull()
-                    val isGallery = currentDestination is Destination.Library
+                LaunchedEffect(currentRoute) {
+                    val isGallery = currentRoute == Screen.Library.route
                     val activityWindow = (view.context as? ComponentActivity)?.window
                     
                     activityWindow?.let { window ->
@@ -147,48 +136,21 @@ class MainActivity : ComponentActivity() {
                             onRequestClick = { requestPermissions() }
                         )
                     } else {
-                        NavDisplay(
-                            modifier = Modifier.fillMaxSize(),
-                            backStack = navigationStack,
-                            onBack = { navigationStack.removeLastOrNull() },
-                            transitionSpec = { fadeIn() togetherWith fadeOut() },
-                            entryProvider = entryProvider {
-                                entry<Destination.Photo> {
-                                    PhotoFragment(
-                                        modifier = Modifier.fillMaxSize(),
-                                        paddings = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                                        viewModel = imageViewModel
-                                    )
-                                }
-                                entry<Destination.Video> {
-                                    VideoFragment(
-                                        modifier = Modifier.fillMaxSize(),
-                                        paddings = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                                        viewModel = videoViewModel
-                                    )
-                                }
-                                entry<Destination.Library> {
-                                    GalleryFragment(
-                                        modifier = Modifier.fillMaxSize(),
-                                        paddings = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                                        viewModel = libraryViewModel,
-                                        onBack = {
-                                            navigationStack.clear()
-                                            navigationStack.add(Destination.Photo)
-                                        }
-                                    )
-                                }
-                            }
+                        NavGraph(
+                            navController = navController,
+                            photoViewModel = imageViewModel,
+                            videoViewModel = videoViewModel,
+                            galleryViewModel = libraryViewModel,
+                            modifier = Modifier.fillMaxSize()
                         )
 
-                        val currentDestination = navigationStack.lastOrNull() ?: Destination.Photo
-                        val currentIndex = when (currentDestination) {
-                            is Destination.Photo -> 0
-                            is Destination.Video -> 1
+                        val currentIndex = when (currentRoute) {
+                            Screen.Photo.route -> 0
+                            Screen.Video.route -> 1
                             else -> 0
                         }
 
-                        if (currentDestination !is Destination.Library) {
+                        if (currentRoute != Screen.Library.route) {
                             val navItems = listOf(
                                 NavigationItem("Фото"),
                                 NavigationItem("Видео")
@@ -199,8 +161,17 @@ class MainActivity : ComponentActivity() {
                                 selectedIndex = currentIndex,
                                 items = navItems,
                                 onItemSelected = { index ->
-                                    navigationStack.clear()
-                                    navigationStack.add(tabs[index])
+                                    val destination = when (index) {
+                                        0 -> Screen.Photo.route
+                                        1 -> Screen.Video.route
+                                        else -> Screen.Photo.route
+                                    }
+                                    navController.navigate(destination) {
+                                        popUpTo(Screen.Photo.route) {
+                                            inclusive = false
+                                        }
+                                        launchSingleTop = true
+                                    }
                                 }
                             )
 
@@ -210,8 +181,12 @@ class MainActivity : ComponentActivity() {
                                     .navigationBarsPadding()
                                     .padding(bottom = 180.dp, end = 24.dp),
                                 onClick = {
-                                    navigationStack.clear()
-                                    navigationStack.add(Destination.Library)
+                                    navController.navigate(Screen.Library.route) {
+                                        popUpTo(Screen.Photo.route) {
+                                            inclusive = false
+                                        }
+                                        launchSingleTop = true
+                                    }
                                 }
                             )
                         }
@@ -223,26 +198,6 @@ class MainActivity : ComponentActivity() {
 
     private fun requestPermissions() {
         permissionLauncher.launch(Permissions.required)
-    }
-
-    @Serializable
-    sealed interface Destination {
-        val label: String
-
-        @Serializable
-        data object Photo : Destination {
-            override val label: String = "Фото"
-        }
-
-        @Serializable
-        data object Video : Destination {
-            override val label: String = "Видео"
-        }
-
-        @Serializable
-        data object Library : Destination {
-            override val label: String = "Галерея"
-        }
     }
 }
 

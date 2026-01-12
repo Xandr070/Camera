@@ -58,7 +58,6 @@ import com.example.camera.viewmodel.Resource
 fun GalleryFragment(
     viewModel: GalleryViewModel,
     modifier: Modifier = Modifier,
-    paddings: PaddingValues = PaddingValues.Zero,
     onBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -116,7 +115,7 @@ fun GalleryFragment(
                             modifier = modifier,
                             items = mediaItems,
                             initialIndex = index,
-                            paddings = paddings,
+                            paddings = PaddingValues(),
                             onClose = { selectedIndex = null },
                             onDelete = { item ->
                                 val itemIndex = mediaItems.indexOf(item)
@@ -126,7 +125,6 @@ fun GalleryFragment(
                                 if (mediaItems.isEmpty()) {
                                     selectedIndex = null
                                 } else {
-                                    // Обновляем индекс после удаления
                                     selectedIndex = minOf(currentPage, mediaItems.size - 1).coerceAtLeast(0)
                                 }
                             }
@@ -222,7 +220,6 @@ private fun MediaPager(
             }
         }
         
-        // Общие кнопки для всех медиа
         BackButton(
             modifier = Modifier
                 .align(Alignment.TopStart)
